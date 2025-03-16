@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import product from '@/views/product/index.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -7,9 +6,20 @@ const router = createRouter({
     {
       path: '/',
       name: 'product',
-      component: product,
+      component: () => import('@/views/product/index.vue'),
     },
+    {
+      path: '/detail/:id',
+      name: 'detailProduct',
+      component: () => import('@/views/product/detail.vue'),
+    }
   ],
+})
+
+router.beforeEach(to => {
+  if(!router.hasRoute(to.name)){
+    return router.push('/')
+  }
 })
 
 export default router

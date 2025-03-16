@@ -1,9 +1,12 @@
 <script setup>
+import notFound from '@/assets/404.json'
 import { Icon } from "@iconify/vue";
 import { useProductStore } from "@/stores/product";
 import { onMounted, ref, onUnmounted, computed, watch } from "vue";
 import Cookies from "js-cookie";
 import { useInfiniteScroll } from "@vueuse/core";
+import router from '@/router';
+
 
 const productStore = useProductStore();
 const products = ref([]);
@@ -24,19 +27,18 @@ onMounted(async () => {
   await initialLoad();
   loadUserSaveData();
   updateCart();
+  if(!isLoading){
+    useInfiniteScroll(
+      scrollContainerRef,
+      async () => {
+        if (!isFetching.value && !isLast.value) {
+          await loadMore();
+        }
+      },
+      { distance: 10 }
+    );
+  }
 });
-
-// Initialize infinite scroll
-useInfiniteScroll(
-  scrollContainerRef,
-  async () => {
-    if (!isFetching.value && !isLast.value) {
-      await loadMore();
-    }
-  },
-  { distance: 10 }
-);
-
 watch(searchQuery, async (newQuery) => {
   // Reset pagination and products when search changes
   page.value = 1;
@@ -171,6 +173,11 @@ const loadUserSaveData = () => {
     Cookies.set("user", []);
   }
 }
+
+const navigateToDetail = (id) => {
+  const encodedID = btoa(id);
+  router.push(`detail/${encodedID}`);
+};
 </script>
 
 <template>
@@ -182,7 +189,7 @@ const loadUserSaveData = () => {
             <Icon icon="mdi:user"></Icon>
           </div>
           <div class="text-sm capitalize font-normal" v-if="userData != null">
-            <p>{{ userData.name ?? 'Customer'}} | {{ userData.phone ?? '+62..'}}</p>
+            <p>{{ userData.name ?? 'Customer' }} | {{ userData.phone ?? '+62..' }}</p>
             <p>{{ userData.address }}</p>
           </div>
         </div>
@@ -217,7 +224,7 @@ const loadUserSaveData = () => {
       <div class="grid grid-cols-2 gap-2">
         <!-- Real products -->
         <div v-for="product in products" :key="product.id" class="bg-white rounded-lg shadow-md"
-          v-if="products.length > 0 || !isLoading">
+          v-if="products.length > 0 || !isLoading" @click="navigateToDetail(product.id)">
           <div class="relative">
             <img
               v-lazy="`${product.catalog_images[0]?.image ? 'https://demo.devaro.store/storage/' + product.catalog_images[0]?.image : 'https://storage.googleapis.com/a1aa/image/xkZ4b5-ggWWw2S9PTnL8XdnGUhYKRjLiDBpDfRwv6rM.jpg'}`"
@@ -233,11 +240,10 @@ const loadUserSaveData = () => {
             </div>
           </div>
           <div class="p-4 pb-6 relative">
-            <h2 class="text-sm capitalize font-semibold mb-2 truncate">
+            <h2 class="text-md capitalize font-semibold line-clamp-2">
               {{ product.name }}
             </h2>
-            <h2 v-html="product.description" class="text-sm capitalize mb-2 truncate line-clamp-2">
-            </h2>
+
             <!-- <div v-if="itemInChart(product.id) > 0"
               class="absolute bottom-2 z-99 right-2 bg-gray-400 text-white text-xs px-2 py-1 flex gap-2 items-center rounded-full">
               <Icon icon="mdi:cart-outline"></Icon>
@@ -260,8 +266,7 @@ const loadUserSaveData = () => {
             <div class="absolute top-2 shadow-lg right-2 bg-gray-100 w-24 h-6 rounded-full"></div>
           </div>
           <div class="p-4 pb-6 relative">
-            <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-            <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div class="h-4 bg-gray-200 rounded w-3/4"></div>
           </div>
           <div class="p-2 pl-4 bg-gray-200 rounded-b-lg">
             <div class="h-4 bg-gray-300 rounded w-1/2"></div>
@@ -277,15 +282,11 @@ const loadUserSaveData = () => {
             <div class="absolute top-2 shadow-lg right-2 bg-gray-100 w-24 h-6 rounded-full"></div>
           </div>
           <div class="p-4 pb-6 relative">
-            <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-            <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div class="h-4 bg-gray-200 rounded w-3/4"></div>
           </div>
           <div class="p-2 pl-4 bg-gray-200 rounded-b-lg">
             <div class="h-4 bg-gray-300 rounded w-1/2"></div>
           </div>
-        </div>
-        <div v-if="products.length < 0">
-          <Vue3Lottie :animationData="AstronautJSON" :height="200" :width="200" />
         </div>
       </div>
 
@@ -294,8 +295,13 @@ const loadUserSaveData = () => {
         <p class="text-gray-500">No more products to load</p>
       </div>
 
+      <div v-if="!isLoading && products.length === 0" class="flex flex-col items-center justify-center py-10">
+        <Vue3Lottie :animationData="notFound" :loop="true" :autoplay="true" style="width: 200px; height: 200px;" />
+        <p class="text-gray-500 mt-4">Produk tidak ditemukan</p>
+      </div>
+
       <div class="fixed z-99 bottom-4 right-4">
-        <button @click="scrollToTop" class="bg-red-500 text-white p-4 rounded-full shadow-lg">
+        <button v-show="scrollContainerRef?.scrollTop > 10" @click="scrollToTop" class="bg-red-500 text-white p-4 rounded-full shadow-lg">
           <Icon icon="mingcute:up-fill"></Icon>
         </button>
       </div>

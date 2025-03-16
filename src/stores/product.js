@@ -4,6 +4,7 @@ import api from '@/utils/fetch'
 
 export const useProductStore = defineStore('product', () => {
   const products = ref([])
+  const product = ref([])
 
   const getProduct = async (params) => {
     const {page, limit, search} = params
@@ -16,7 +17,18 @@ export const useProductStore = defineStore('product', () => {
     }
   }
 
+  const getProductDetail = async (id) => {
+    try {
+      const response = await api.get(`/products/detail/${id}`)
+      product.value = response.data
+      console.log(product.value)
+      return response
+    } catch {
+      console.error('Error fetching products')
+    }
+  }
+
   return {
-    getProduct, products
+    getProduct, products, product, getProductDetail
   }
 })

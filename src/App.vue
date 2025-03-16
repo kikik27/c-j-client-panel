@@ -10,6 +10,8 @@ import { RouterLink, RouterView } from 'vue-router'
   </div>
 </template>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
+
 .mobile-container {
   width: 100%;
   max-width: 480px;
@@ -17,7 +19,8 @@ import { RouterLink, RouterView } from 'vue-router'
   height: 100vh;
   overflow: hidden;
 }
+
 body {
-  font-family: 'Poppins', sans-serif;
+  font-family: "Nunito", sans-serif;
 }
 </style>
