@@ -21,7 +21,6 @@ export const useProductStore = defineStore('product', () => {
     try {
       const response = await api.get(`/products/detail/${id}`)
       product.value = response.data
-      console.log(product.value)
       return response
     } catch {
       console.error('Error fetching products')

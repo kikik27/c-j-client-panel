@@ -27,7 +27,7 @@ onMounted(async () => {
   await initialLoad();
   loadUserSaveData();
   updateCart();
-  if(!isLoading){
+  if(isLoading){
     useInfiniteScroll(
       scrollContainerRef,
       async () => {
@@ -167,7 +167,6 @@ const scrollToTop = () => {
 
 const loadUserSaveData = () => {
   try {
-    console.log("user data loaded")
     userData.value = JSON.parse(Cookies.get("user") || null);
   } catch {
     Cookies.set("user", []);
@@ -181,7 +180,7 @@ const navigateToDetail = (id) => {
 </script>
 
 <template>
-  <div class="overflow-auto h-screen" ref="scrollContainerRef">
+  <div class="overflow-y-auto overscroll-contain h-screen w-full" ref="scrollContainerRef">
     <div class="sticky top-0 z-50 bg-white shadow-md">
       <div class="flex justify-between w-full px-4 py-3 items-center">
         <div class="flex items-center gap-2">
@@ -259,7 +258,7 @@ const navigateToDetail = (id) => {
 
         <!-- Skeleton cards for initial loading -->
         <div v-if="isLoading" v-for="i in 4" :key="`skeleton-initial-${i}`"
-          class="bg-white rounded-lg shadow-md animate-pulse">
+          class="bg-white rounded-lg shadow-md animate-pulse rounded-t-lg">
           <div class="relative">
             <div class="w-full h-48 bg-gray-200"></div>
             <div class="absolute top-2 shadow-lg left-2 bg-gray-100 w-12 h-6 rounded-full"></div>
@@ -275,7 +274,7 @@ const navigateToDetail = (id) => {
 
         <!-- Skeleton cards for loading more -->
         <div v-if="isFetching && !isLoading" v-for="i in 2" :key="`skeleton-more-${i}`"
-          class="bg-white rounded-lg shadow-md animate-pulse">
+          class="bg-white rounded-lg shadow-md animate-pulse rounded-t-lg">
           <div class="relative">
             <div class="w-full h-48 bg-gray-200"></div>
             <div class="absolute top-2 shadow-lg left-2 bg-gray-100 w-12 h-6 rounded-full"></div>
@@ -301,7 +300,8 @@ const navigateToDetail = (id) => {
       </div>
 
       <div class="fixed z-99 bottom-4 right-4">
-        <button v-show="scrollContainerRef?.scrollTop > 10" @click="scrollToTop" class="bg-red-500 text-white p-4 rounded-full shadow-lg">
+        <button v-show="scrollContainerRef?.scrollTop > 10" @click="scrollToTop"
+          class="bg-red-500 text-white p-4 rounded-full shadow-lg">
           <Icon icon="mingcute:up-fill"></Icon>
         </button>
       </div>
