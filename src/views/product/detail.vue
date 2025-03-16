@@ -29,7 +29,7 @@ const showSuccessModal = () => {
   isModalVisible.value = true;
   setTimeout(() => {
     isModalVisible.value = false;
-  }, 500);
+  }, 1000);
 };
 
 const initialLoad = async () => {
