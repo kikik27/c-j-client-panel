@@ -1,0 +1,322 @@
+<script setup>
+import { Icon } from "@iconify/vue";
+import { useProductStore } from "@/stores/product";
+import { onMounted, ref, onUnmounted, computed, watch } from "vue";
+import Cookies from "js-cookie";
+import { useInfiniteScroll } from "@vueuse/core";
+
+const productStore = useProductStore();
+const products = ref([]);
+const cartItems = ref([]);
+const cartCount = ref(0);
+const isLoading = ref(true);
+const searchQuery = ref('');
+const page = ref(1);
+const limit = ref(6);
+const isLast = ref(false);
+const isFetching = ref(false);
+const scrollContainerRef = ref(null);
+const showSearch = ref(false);
+const userData = ref(null)
+
+onMounted(async () => {
+  // Initial load of first page
+  await initialLoad();
+  loadUserSaveData();
+  updateCart();
+});
+
+// Initialize infinite scroll
+useInfiniteScroll(
+  scrollContainerRef,
+  async () => {
+    if (!isFetching.value && !isLast.value) {
+      await loadMore();
+    }
+  },
+  { distance: 10 }
+);
+
+watch(searchQuery, async (newQuery) => {
+  // Reset pagination and products when search changes
+  page.value = 1;
+  products.value = [];
+  isLast.value = false;
+  isLoading.value = true;
+  console.log("SEARCHIng")
+  try {
+    const res = await productStore.getProduct({
+      page: page.value,
+      limit: limit.value,
+      search: newQuery
+    });
+    products.value = [...productStore.products];
+    isLast.value = res.data.next_page_url === null;
+    if (res.data.next_page_url !== null) {
+      page.value += 1;
+    }
+  } catch (error) {
+    console.error("Error searching products:", error);
+  } finally {
+    isLoading.value = false;
+  }
+}, { debounce: 1000 });
+
+const initialLoad = async () => {
+  isLoading.value = true;
+  try {
+    const res = await productStore.getProduct({ page: page.value, limit: limit.value, search: searchQuery.value });
+    products.value = [...productStore.products];
+    isLast.value = res.data.next_page_url === null;
+    if (res.data.next_page_url !== null) {
+      page.value += 1;
+    }
+  } catch (error) {
+    console.error("Error loading initial products:", error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const loadMore = async () => {
+  // Don't fetch if already fetching or at the last page
+  if (isFetching.value || isLast.value) return;
+
+  isFetching.value = true;
+  try {
+    const res = await productStore.getProduct({ page: page.value, limit: limit.value, search: '' });
+    products.value = [...products.value, ...productStore.products];
+
+    // Update isLast flag and page number
+    isLast.value = res.data.next_page_url === null;
+    if (res.data.next_page_url !== null) {
+      page.value += 1;
+    }
+  } catch (error) {
+    console.error("Error loading more products:", error);
+  } finally {
+    isFetching.value = false;
+  }
+};
+
+const saveToCart = (product) => {
+  let cart = JSON.parse(Cookies.get("cart") || "[]");
+  const existingItem = cart.find((item) => item.id === product.id);
+  if (existingItem) {
+    existingItem.qty++;
+  } else {
+    cart.push({ id: product.id, qty: 1 });
+  }
+  Cookies.set("cart", JSON.stringify(cart), { expires: 7 });
+  updateCart();
+};
+
+const updateCart = () => {
+  try {
+
+    cartItems.value = JSON.parse(Cookies.get("cart") || "[]");
+    cartCount.value = cartItems.value.reduce((total, item) => total + item.qty, 0);
+  } catch {
+    Cookies.set("cart", []);
+  }
+};
+
+const formatMoney = (value, currency = "IDR", locale = "id") => {
+  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(value);
+};
+
+const itemInChart = (id) => {
+  const item = cartItems.value.find((item) => item.id === id);
+  return item ? item.qty : 0;
+};
+
+// Get sales rank - return null if no sales data
+const getSalesRank = (product) => {
+  if (product.sales_count === null) return null;
+
+  // Sort products by sales_count in descending order
+  const sortedProducts = [...products.value]
+    .filter(p => p.sales_count !== null)
+    .sort((a, b) => b.sales_count - a.sales_count);
+
+  // Find the position of the current product
+  const position = sortedProducts.findIndex(p => p.id === product.id);
+
+  // Return position + 1 to make it 1-based
+  return position !== -1 ? position + 1 : null;
+};
+
+const toggleSearch = () => {
+  showSearch.value = !showSearch.value;
+  if (showSearch.value) {
+    // Focus on search input when shown
+    setTimeout(() => {
+      document.getElementById('search-input').focus();
+    }, 100);
+  }
+};
+
+// Scroll to top function
+const scrollToTop = () => {
+  if (scrollContainerRef.value) {
+    scrollContainerRef.value.scrollTo({ top: 0, behavior: "smooth" });
+  }
+};
+
+const loadUserSaveData = () => {
+  try {
+    console.log("user data loaded")
+    userData.value = JSON.parse(Cookies.get("user") || null);
+  } catch {
+    Cookies.set("user", []);
+  }
+}
+</script>
+
+<template>
+  <div class="overflow-auto h-screen" ref="scrollContainerRef">
+    <div class="sticky top-0 z-50 bg-white shadow-md">
+      <div class="flex justify-between w-full px-4 py-3 items-center">
+        <div class="flex items-center gap-2">
+          <div class="border-1 p-2 rounded-full">
+            <Icon icon="mdi:user"></Icon>
+          </div>
+          <div class="text-sm capitalize font-normal" v-if="userData != null">
+            <p>{{ userData.name ?? 'Customer'}} | {{ userData.phone ?? '+62..'}}</p>
+            <p>{{ userData.address }}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <button @click="toggleSearch" class="p-3 rounded-lg bg-gray-100 hover:bg-gray-200">
+            <Icon icon="mdi:magnify" class="text-gray-700"></Icon>
+          </button>
+          <div class="relative p-3 bg-yellow-400 rounded-lg">
+            <Icon icon="mdi:cart" class="text-white"></Icon>
+            <p
+              class="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-2 py-1 flex items-center justify-center rounded-full min-w-5 h-5">
+              {{ cartCount }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search input -->
+      <div v-if="showSearch" class="px-4 pb-3 transition-all duration-300">
+        <div class="relative">
+          <input id="search-input" v-model="searchQuery" type="text" placeholder="Search products..."
+            class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400" />
+          <Icon icon="mdi:magnify" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <button v-if="searchQuery" @click="searchQuery = ''"
+            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+            <Icon icon="mdi:close" />
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="container mx-auto p-4">
+      <div class="grid grid-cols-2 gap-2">
+        <!-- Real products -->
+        <div v-for="product in products" :key="product.id" class="bg-white rounded-lg shadow-md"
+          v-if="products.length > 0 || !isLoading">
+          <div class="relative">
+            <img
+              v-lazy="`${product.catalog_images[0]?.image ? 'https://demo.devaro.store/storage/' + product.catalog_images[0]?.image : 'https://storage.googleapis.com/a1aa/image/xkZ4b5-ggWWw2S9PTnL8XdnGUhYKRjLiDBpDfRwv6rM.jpg'}`"
+              :alt="product.name" class="w-full h-48 object-cover" />
+            <div
+              class="absolute hidden top-2 shadow-lg left-2 bg-white flex gap-2 text-yellow-500 items-center text-xs px-2 py-1 rounded-full">
+              <Icon icon="material-symbols:star" class="text-yellow-500"></Icon>
+              <p>4</p>
+            </div>
+            <div v-if="product.sales_count !== null"
+              class="absolute top-2 shadow-lg right-2 bg-red-500 flex gap-2 text-white items-center text-xs px-2 py-1 rounded-full">
+              <p>Terlaris No {{ getSalesRank(product) }}</p>
+            </div>
+          </div>
+          <div class="p-4 pb-6 relative">
+            <h2 class="text-sm capitalize font-semibold mb-2 truncate">
+              {{ product.name }}
+            </h2>
+            <h2 v-html="product.description" class="text-sm capitalize mb-2 truncate line-clamp-2">
+            </h2>
+            <!-- <div v-if="itemInChart(product.id) > 0"
+              class="absolute bottom-2 z-99 right-2 bg-gray-400 text-white text-xs px-2 py-1 flex gap-2 items-center rounded-full">
+              <Icon icon="mdi:cart-outline"></Icon>
+              {{ itemInChart(product.id) }}
+            </div> -->
+          </div>
+          <div class="p-2 pl-4 bg-yellow-500 rounded-b-lg">
+            <h2 class="text-xs text-white font-semibold">
+              {{ formatMoney(product.price) }}
+            </h2>
+          </div>
+        </div>
+
+        <!-- Skeleton cards for initial loading -->
+        <div v-if="isLoading" v-for="i in 4" :key="`skeleton-initial-${i}`"
+          class="bg-white rounded-lg shadow-md animate-pulse">
+          <div class="relative">
+            <div class="w-full h-48 bg-gray-200"></div>
+            <div class="absolute top-2 shadow-lg left-2 bg-gray-100 w-12 h-6 rounded-full"></div>
+            <div class="absolute top-2 shadow-lg right-2 bg-gray-100 w-24 h-6 rounded-full"></div>
+          </div>
+          <div class="p-4 pb-6 relative">
+            <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+          </div>
+          <div class="p-2 pl-4 bg-gray-200 rounded-b-lg">
+            <div class="h-4 bg-gray-300 rounded w-1/2"></div>
+          </div>
+        </div>
+
+        <!-- Skeleton cards for loading more -->
+        <div v-if="isFetching && !isLoading" v-for="i in 2" :key="`skeleton-more-${i}`"
+          class="bg-white rounded-lg shadow-md animate-pulse">
+          <div class="relative">
+            <div class="w-full h-48 bg-gray-200"></div>
+            <div class="absolute top-2 shadow-lg left-2 bg-gray-100 w-12 h-6 rounded-full"></div>
+            <div class="absolute top-2 shadow-lg right-2 bg-gray-100 w-24 h-6 rounded-full"></div>
+          </div>
+          <div class="p-4 pb-6 relative">
+            <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+          </div>
+          <div class="p-2 pl-4 bg-gray-200 rounded-b-lg">
+            <div class="h-4 bg-gray-300 rounded w-1/2"></div>
+          </div>
+        </div>
+        <div v-if="products.length < 0">
+          <Vue3Lottie :animationData="AstronautJSON" :height="200" :width="200" />
+        </div>
+      </div>
+
+      <!-- End of products indicator -->
+      <div v-if="isLast && products.length > 0 && !isLoading && !isFetching" class="text-center py-4">
+        <p class="text-gray-500">No more products to load</p>
+      </div>
+
+      <div class="fixed z-99 bottom-4 right-4">
+        <button @click="scrollToTop" class="bg-red-500 text-white p-4 rounded-full shadow-lg">
+          <Icon icon="mingcute:up-fill"></Icon>
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+</style>

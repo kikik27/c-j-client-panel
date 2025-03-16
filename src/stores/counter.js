@@ -1,12 +1,11 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import { globalFetch } from '@/utils/fetch'
 
-export const useCounterStore = defineStore('counter', () => {
-  const count = ref(0)
-  const doubleCount = computed(() => count.value * 2)
-  function increment() {
-    count.value++
+export const useProduct = defineStore('product', () => {
+  const products = ref()
+
+  async function fetchProducts() {
+    globalFetch('/products').then((res) => res.json()).catch((err) => console.error(err))
   }
-
-  return { count, doubleCount, increment }
 })
