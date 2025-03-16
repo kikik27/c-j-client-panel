@@ -1,7 +1,7 @@
 <script setup>
 import { Icon } from "@iconify/vue";
 import { useProductStore } from "@/stores/product";
-import { onMounted, ref } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import Cookies from "js-cookie";
 import router from '@/router';
 import { Swiper, SwiperSlide } from "swiper/vue";
@@ -17,13 +17,28 @@ const cartItems = ref([]);
 const cartCount = ref(0);
 const isLoading = ref(true);
 const userData = ref(null)
-const product = ref([])
+const product = ref({});
 const isModalVisible = ref(false);
+const isScrolled = ref(false);
+const scrolContainer = ref(null)
 
 onMounted(async () => {
   updateCart();
   await initialLoad();
+  handleScroll()
+  window.addEventListener('scroll', handleScroll);
 });
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
+});
+
+watch(scrolContainer, (newVal) => {
+  if (newVal) {
+    newVal.addEventListener('scroll', handleScroll);
+  }
+}, { immediate: true });
+
 
 const showSuccessModal = () => {
   isModalVisible.value = true;
@@ -31,6 +46,14 @@ const showSuccessModal = () => {
     isModalVisible.value = false;
   }, 1000);
 };
+
+const handleScroll = () => {
+  if (scrolContainer.value) {
+    isScrolled.value = scrolContainer.value.scrollTop > 10;
+  }
+};
+
+
 
 const initialLoad = async () => {
   isLoading.value = true;
@@ -95,12 +118,6 @@ const toggleSearch = () => {
   }
 };
 
-const scrollToTop = () => {
-  if (scrollContainerRef.value) {
-    scrollContainerRef.value.scrollTo({ top: 0, behavior: "smooth" });
-  }
-};
-
 const loadUserSaveData = () => {
   try {
     console.log("user data loaded")
@@ -118,8 +135,9 @@ const numberFormatter = (number) => {
 }
 </script>
 <template>
-  <div class="overflow-y-auto overscroll-contain h-screen w-full flex flex-col gap-4">
-    <div class="fixed z-99 top-0 p-4 flex w-full max-w-[480px] justify-between">
+  <div class="overflow-y-auto overscroll-contain h-screen w-full flex flex-col gap-4" ref="scrolContainer">
+    <div class="fixed z-99 top-0 p-4 flex w-full max-w-[480px] justify-between"
+      :class="{ 'bg-black/20 shadow-lg': isScrolled, 'bg-transparent': !isScrolled }">
       <button @click="router.back() ?? router.push('/')" class="bg-white shadow-lg p-3 rounded-full px-4">
         <Icon icon="weui:back-filled" class="text-black"></Icon>
       </button>
