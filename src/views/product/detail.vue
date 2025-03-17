@@ -198,10 +198,10 @@ const numberFormatter = (number) => {
 
     <div class="fixed bottom-0 w-full max-w-[480px] flex items-center justify-between gap-2 p-4 z-50">
       <button @click="saveToCart(product)" :disabled="isLoading"
-        class="w-full p-4 bg-yellow-400 text-white text-center rounded-lg">
+        class="w-full p-4 bg-yellow-400 text-white text-sm text-center rounded-lg">
         Masukkan Keranjang
       </button>
-      <button :disabled="isLoading" class="w-full p-4 bg-red-400 text-white text-center rounded-lg">
+      <button :disabled="isLoading" class="w-full p-4 text-sm bg-red-400 text-white text-center rounded-lg">
         Beli Sekarang
       </button>
     </div>
