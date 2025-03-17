@@ -192,7 +192,7 @@ const numberFormatter = (number) => {
       </div>
       <div v-else>
         <h1 class="text-lg capitalize font-bold">Tentang Produk</h1>
-        <h2 v-html="product.description" class="text-md mt-2 mb-24 capitalize"></h2>
+        <div v-html="product.description" class="text-md v-html mt-2 mb-24 capitalize"></div>
       </div>
     </div>
 
@@ -226,5 +226,18 @@ const numberFormatter = (number) => {
   background-color: #FFA500 !important;
   /* Warna bullet aktif */
   opacity: 1;
+}
+
+.v-html ul {
+  list-style-type: disc;
+  /* Atur bullet */
+  padding-left: 20px;
+  /* Beri padding agar bullet terlihat */
+}
+
+.v-html ol {
+  list-style-type: decimal;
+  /* Untuk daftar bernomor */
+  padding-left: 20px;
 }
 </style>

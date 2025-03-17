@@ -222,38 +222,27 @@ const navigateToDetail = (id) => {
     <div class="container mx-auto p-4">
       <div class="grid grid-cols-2 gap-2">
         <!-- Real products -->
-        <div v-for="product in products" :key="product.id" class="bg-white rounded-lg shadow-md"
+        <div v-for="product in products" :key="product.id" class="bg-white rounded-lg shadow-md flex flex-col h-full"
           v-if="products.length > 0 || !isLoading" @click="navigateToDetail(product.id)">
+
           <div class="relative">
             <img
               v-lazy="`${product.catalog_images[0]?.image ? 'https://demo.devaro.store/storage/' + product.catalog_images[0]?.image : 'https://storage.googleapis.com/a1aa/image/xkZ4b5-ggWWw2S9PTnL8XdnGUhYKRjLiDBpDfRwv6rM.jpg'}`"
               :alt="product.name" class="w-full h-48 object-cover" />
-            <div
-              class="absolute hidden top-2 shadow-lg left-2 bg-white flex gap-2 text-yellow-500 items-center text-xs px-2 py-1 rounded-full">
-              <Icon icon="material-symbols:star" class="text-yellow-500"></Icon>
-              <p>4</p>
-            </div>
-            <div v-if="product.sales_count !== null"
-              class="absolute top-2 shadow-lg right-2 bg-red-500 flex gap-2 text-white items-center text-xs px-2 py-1 rounded-full">
-              <p>Terlaris No {{ getSalesRank(product) }}</p>
-            </div>
           </div>
-          <div class="p-4 pb-6 relative">
+
+          <div class="flex flex-col flex-grow p-4 pb-6 relative">
             <h2 class="text-md capitalize font-semibold line-clamp-2">
               {{ product.name }}
             </h2>
-
-            <!-- <div v-if="itemInChart(product.id) > 0"
-              class="absolute bottom-2 z-99 right-2 bg-gray-400 text-white text-xs px-2 py-1 flex gap-2 items-center rounded-full">
-              <Icon icon="mdi:cart-outline"></Icon>
-              {{ itemInChart(product.id) }}
-            </div> -->
           </div>
+
           <div class="p-2 pl-4 bg-yellow-500 rounded-b-lg">
             <h2 class="text-xs text-white font-semibold">
               {{ formatMoney(product.price) }}
             </h2>
           </div>
+
         </div>
 
         <!-- Skeleton cards for initial loading -->
