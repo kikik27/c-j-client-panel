@@ -196,13 +196,13 @@ const navigateToDetail = (id) => {
           <button @click="toggleSearch" class="p-3 rounded-lg bg-gray-100 hover:bg-gray-200">
             <Icon icon="mdi:magnify" class="text-gray-700"></Icon>
           </button>
-          <div class="relative p-3 bg-yellow-400 rounded-lg">
+          <a href="/carts" class="relative p-3 bg-yellow-400 rounded-lg">
             <Icon icon="mdi:cart" class="text-white"></Icon>
             <p
               class="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-2 py-1 flex items-center justify-center rounded-full min-w-5 h-5">
-              {{ cartCount }}
+              {{ cartItems.length }}
             </p>
-          </div>
+          </a>
         </div>
       </div>
 
