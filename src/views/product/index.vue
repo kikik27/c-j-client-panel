@@ -6,12 +6,11 @@ import { onMounted, ref, onUnmounted, computed, watch } from "vue";
 import Cookies from "js-cookie";
 import { useInfiniteScroll } from "@vueuse/core";
 import router from '@/router';
+import { useCartStore } from '@/stores/cart';
 
-
+const cartStore = useCartStore();
 const productStore = useProductStore();
 const products = ref([]);
-const cartItems = ref([]);
-const cartCount = ref(0);
 const isLoading = ref(true);
 const searchQuery = ref('');
 const page = ref(1);
@@ -21,12 +20,14 @@ const isFetching = ref(false);
 const scrollContainerRef = ref(null);
 const showSearch = ref(false);
 const userData = ref(null)
+import { useDialog } from '@/utils/useDialog';
+const dialog = useDialog();
+
+// Confirmation dialog with promise handling
 
 onMounted(async () => {
-  // Initial load of first page
+  cartStore.loadCart()
   await initialLoad();
-  loadUserSaveData();
-  updateCart();
   if(isLoading){
     useInfiniteScroll(
       scrollContainerRef,
@@ -98,28 +99,6 @@ const loadMore = async () => {
     console.error("Error loading more products:", error);
   } finally {
     isFetching.value = false;
-  }
-};
-
-const saveToCart = (product) => {
-  let cart = JSON.parse(Cookies.get("cart") || "[]");
-  const existingItem = cart.find((item) => item.id === product.id);
-  if (existingItem) {
-    existingItem.qty++;
-  } else {
-    cart.push({ id: product.id, qty: 1 });
-  }
-  Cookies.set("cart", JSON.stringify(cart), { expires: 7 });
-  updateCart();
-};
-
-const updateCart = () => {
-  try {
-
-    cartItems.value = JSON.parse(Cookies.get("cart") || "[]");
-    cartCount.value = cartItems.value.reduce((total, item) => total + item.qty, 0);
-  } catch {
-    Cookies.set("cart", []);
   }
 };
 
@@ -200,7 +179,7 @@ const navigateToDetail = (id) => {
             <Icon icon="mdi:cart" class="text-white"></Icon>
             <p
               class="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-2 py-1 flex items-center justify-center rounded-full min-w-5 h-5">
-              {{ cartItems.length }}
+              {{ cartStore.items.length }}
             </p>
           </a>
         </div>
@@ -220,6 +199,9 @@ const navigateToDetail = (id) => {
       </div>
     </div>
     <div class="container mx-auto p-4">
+    <!-- <h2 class="w-full text-xl font-semibold mb-4 text-start">
+      Form Order
+    </h2> -->
       <div class="grid grid-cols-2 gap-2">
         <!-- Real products -->
         <div v-for="product in products" :key="product.id" class="bg-white rounded-lg shadow-md flex flex-col h-full"

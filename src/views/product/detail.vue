@@ -2,19 +2,17 @@
 import { Icon } from "@iconify/vue";
 import { useProductStore } from "@/stores/product";
 import { onMounted, onUnmounted, ref, watch } from "vue";
-import Cookies from "js-cookie";
 import router from '@/router';
 import { Swiper, SwiperSlide } from "swiper/vue";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { Pagination, Autoplay } from "swiper/modules";
+import { useCartStore } from "@/stores/cart";
 
 
-
+const cartStore = useCartStore();
 const productStore = useProductStore();
-const cartItems = ref([]);
-const cartCount = ref(0);
 const isLoading = ref(true);
 const userData = ref(null)
 const product = ref({});
@@ -23,8 +21,8 @@ const isScrolled = ref(false);
 const scrolContainer = ref(null)
 
 onMounted(async () => {
-  updateCart();
-  await initialLoad();
+  await initialLoad()
+  cartStore.loadCart()
   handleScroll()
   window.addEventListener('scroll', handleScroll);
 });
@@ -53,8 +51,6 @@ const handleScroll = () => {
   }
 };
 
-
-
 const initialLoad = async () => {
   isLoading.value = true;
   const { id } = router.currentRoute.value.params
@@ -68,38 +64,9 @@ const initialLoad = async () => {
   }
 };
 
-const saveToCart = (product) => {
-  let cart = JSON.parse(Cookies.get("cart") || "[]");
-  const existingItem = cart.find((item) => item.id === product.id);
-  if (existingItem) {
-    existingItem.qty++;
-  } else {
-    cart.push({ id: product.id, qty: 1, name: product.name, price: product.price, image: product.catalog_images[0].image, isSelected: true });
-  }
-  Cookies.set("cart", JSON.stringify(cart), { expires: 7 });
-  updateCart();
-  showSuccessModal();
-};
-
-const updateCart = () => {
-  try {
-
-    cartItems.value = JSON.parse(Cookies.get("cart") || "[]");
-    cartCount.value = cartItems.value.reduce((total, item) => total + item.qty, 0);
-  } catch {
-    Cookies.set("cart", []);
-  }
-};
-
 const formatMoney = (value, currency = "IDR", locale = "id") => {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(value);
 };
-
-const itemInChart = (id) => {
-  const item = cartItems.value.find((item) => item.id === id);
-  return item ? item.qty : 0;
-};
-
 const getSalesRank = (product) => {
   if (product.sales_count === null) return null;
   const sortedProducts = [...product.value]
@@ -146,7 +113,7 @@ const numberFormatter = (number) => {
         <Icon icon="mdi:cart" class="text-white"></Icon>
         <p
           class="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 flex items-center justify-center rounded-full min-w-5 h-5">
-          {{ cartItems.length }}
+          {{ cartStore.items.length }}
         </p>
       </a>
     </div>
@@ -198,7 +165,7 @@ const numberFormatter = (number) => {
     </div>
 
     <div class="fixed bottom-0 w-full max-w-[480px] flex items-center justify-between gap-2 p-4 z-50">
-      <button @click="saveToCart(product)" :disabled="isLoading"
+      <button @click="cartStore.addToCart(product)" :disabled="isLoading"
         class="w-full p-4 bg-yellow-500 disabled:bg-yellow-400 disabled:cursor-not-allowed text-white text-sm text-center rounded-lg">
         Masukkan Keranjang
       </button>

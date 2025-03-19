@@ -6,6 +6,7 @@ import { RouterLink, RouterView } from 'vue-router'
   <div class="flex justify-center items-center min-h-screen bg-gray-50 m-0 p-0">
     <div class="max-w-sm bg-white mobile-container shadow-xl h-screen w-full">
       <RouterView />
+      <DialogContainer />
     </div>
   </div>
 </template>
