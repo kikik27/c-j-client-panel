@@ -1,7 +1,7 @@
 <script setup>
 import { Icon } from "@iconify/vue";
 import { useProductStore } from "@/stores/product";
-import { onMounted, onUnmounted, ref, watch } from "vue";
+import { inject, onMounted, onUnmounted, ref, watch } from "vue";
 import router from '@/router';
 import { Swiper, SwiperSlide } from "swiper/vue";
 import "swiper/css";
@@ -9,7 +9,9 @@ import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { Pagination, Autoplay } from "swiper/modules";
 import { useCartStore } from "@/stores/cart";
-
+import { useDialog } from '@/utils/useDialog';
+const dialog =  useDialog();
+import success from '@/assets/lottie-success.json'
 
 const cartStore = useCartStore();
 const productStore = useProductStore();
@@ -67,14 +69,7 @@ const initialLoad = async () => {
 const formatMoney = (value, currency = "IDR", locale = "id") => {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(value);
 };
-const getSalesRank = (product) => {
-  if (product.sales_count === null) return null;
-  const sortedProducts = [...product.value]
-    .filter(p => p.sales_count !== null)
-    .sort((a, b) => b.sales_count - a.sales_count);
-  const position = sortedProducts.findIndex(p => p.id === product.id);
-  return position !== -1 ? position + 1 : null;
-};
+
 
 const toggleSearch = () => {
   showSearch.value = !showSearch.value;
@@ -100,6 +95,21 @@ const numberFormatter = (number) => {
   }
   return number.toString();
 }
+
+const handleAddToCart = async (product) => {
+  try {
+    cartStore.addToCart(product);
+    dialog.open({
+      title: 'Ditambahkan ke keranjang.',
+      animation: success,
+      showCancelButton: false,
+      showConfirmButton: false,
+      duration: 2000
+    })
+  } catch (error) {
+    console.error("Error adding to cart:", error);
+  }
+};
 </script>
 <template>
   <div class="overflow-y-auto overscroll-contain h-screen w-full flex flex-col gap-4" ref="scrolContainer">
@@ -123,7 +133,7 @@ const numberFormatter = (number) => {
         :modules="[Pagination, Autoplay]" :slides-per-view="1" :loop="true"
         :autoplay="{ delay: 3000, disableOnInteraction: false }" :pagination="{ clickable: true }" class="w-full h-64">
         <SwiperSlide v-for="(image, index) in product.catalog_images" :key="index">
-          <img v-lazy="`https://demo.devaro.store/storage/${image.image}`" alt="Product Image"
+          <img v-lazy="image.image_url" alt="Product Image"
             class="w-full h-64 object-cover" />
         </SwiperSlide>
       </Swiper>
@@ -165,7 +175,7 @@ const numberFormatter = (number) => {
     </div>
 
     <div class="fixed bottom-0 w-full max-w-[480px] flex items-center justify-between gap-2 p-4 z-50">
-      <button @click="cartStore.addToCart(product)" :disabled="isLoading"
+      <button @click="handleAddToCart(product)" :disabled="isLoading"
         class="w-full p-4 bg-yellow-500 disabled:bg-yellow-400 disabled:cursor-not-allowed text-white text-sm text-center rounded-lg">
         Masukkan Keranjang
       </button>

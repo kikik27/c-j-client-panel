@@ -30,7 +30,8 @@ export const DialogPlugin = {
             panelClass: dialog.panelClass,
             persistent: dialog.persistent,
             onConfirm: dialog.onConfirm,
-            onCancel: dialog.onCancel
+            onCancel: dialog.onCancel,
+            animation: dialog.animation,
           }, dialog.content ? { default: () => createVNode(dialog.content) } : {});
         });
       }

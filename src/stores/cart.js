@@ -76,8 +76,9 @@ export const useCartStore = defineStore('cart', () => {
         id: product.id,
         name: product.name,
         price: product.price,
-        image: product.catalog_images[0].image,
+        image: product.catalog_images.length > 0 ? product.catalog_images[0].image_url : null,
         qty: 1,
+        salesCount: product.sales_count,
         isSelected: true,
       });
     }
@@ -90,6 +91,18 @@ export const useCartStore = defineStore('cart', () => {
     if (item) {
       item.qty = Math.max(1, quantity); // Ensure minimum quantity is 1
       saveCart();
+    }
+  };
+
+  const postCarts = async (products) => {
+    isLoading.value = true;
+    try {
+      const response = await api.post('/transaction', { products: products });
+      return response;
+    } catch (error) {
+      console.error('Error posting cart data:', error);
+    } finally {
+      isLoading.value = false;
     }
   };
 

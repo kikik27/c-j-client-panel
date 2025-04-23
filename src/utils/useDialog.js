@@ -1,6 +1,7 @@
-// useDialog.js
+import * as yup from 'yup';
 import { ref, reactive, markRaw, h, render } from 'vue';
-
+import error from '@/assets/lottie-warning.json'
+import success from '@/assets/lottie-success.json'
 const dialogs = reactive([]);
 
 // Create a unique ID for each dialog
@@ -35,8 +36,16 @@ export function useDialog() {
           resolve(false);
           if (options.onCancel) options.onCancel();
         },
+        animation: options.animation || success,
         isOpen: true
       };
+
+      if (options.duration) {
+        setTimeout(() => {
+          closeDialog(dialogId);
+          resolve(); // resolve tanpa true/false
+        }, options.duration);
+      }
 
       dialogs.push(dialogOptions);
     });
@@ -68,7 +77,7 @@ export function useDialog() {
 
   const alert = (options = {}) => {
     if (typeof options === 'string') {
-      options = { description: options };
+      options = { description: options, animation: success };
     }
 
     return open({
@@ -80,37 +89,74 @@ export function useDialog() {
   };
 
   const prompt = (options = {}) => {
-    const inputValue = ref('');
+    const fields = options.fields || [];
+    const formData = reactive({});
+    const errors = reactive({});
 
-    const content = {
-      setup() {
-        return () => h('input', {
-          type: 'text',
-          value: inputValue.value,
-          class: 'mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50',
-          placeholder: options.placeholder || '',
-          onInput: (e) => {
-            inputValue.value = e.target.value;
-          }
-        });
+    fields.forEach(field => {
+      formData[field.name] = '';
+      errors[field.name] = '';
+    });
+
+    const schema = yup.object().shape(
+      Object.fromEntries(fields.map(field => [
+        field.name,
+        field.rule || yup.string().required(`${field.label} wajib diisi`)
+      ]))
+    );
+
+    // PromptForm.vue atau bisa juga inline komponen
+    const PromptForm = defineComponent({
+      props: ['fields', 'formData', 'errors'],
+      setup(props) {
+        return () =>
+          h('div', {}, props.fields.map(field => [
+            h('label', { class: 'block mt-2 font-semibold' }, field.label),
+            h('input', {
+              type: field.type || 'text',
+              value: props.formData[field.name],
+              placeholder: field.placeholder || '',
+              class: 'mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus:ring-1',
+              onInput: e => {
+                props.formData[field.name] = e.target.value;
+                props.errors[field.name] = '';
+              }
+            }),
+            props.errors[field.name]
+              ? h('p', { class: 'text-red-500 text-sm' }, props.errors[field.name])
+              : null
+          ]));
       }
-    };
+    });
+
+
+    const contentComponent = h(PromptForm, { fields, formData, errors });
 
     return new Promise((resolve) => {
       open({
-        title: options.title || 'Input',
-        description: options.description || 'Please enter a value:',
-        content: markRaw(content),
-        onConfirm: () => {
-          resolve(inputValue.value);
+        title: options.title || 'Form',
+        description: options.description || '',
+        content: markRaw(contentComponent),
+        confirmButtonText: 'Kirim',
+        cancelButtonText: 'Batal',
+        animation: options.animation,
+        onConfirm: async () => {
+          try {
+            const data = await schema.validate(formData, { abortEarly: false });
+            resolve(data);
+          } catch (err) {
+            if (err.inner) {
+              err.inner.forEach(e => {
+                errors[e.path] = e.message;
+              });
+            }
+          }
         },
-        onCancel: () => {
-          resolve(null);
-        },
-        ...options
+        onCancel: () => resolve(null)
       });
     });
   };
+
 
   return {
     open,

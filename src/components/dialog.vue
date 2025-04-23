@@ -1,132 +1,82 @@
 <template>
-  <TransitionRoot appear :show="isOpen" as="template">
-    <Dialog as="div" class="relative z-50" @close="closeDialog">
-      <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0" enter-to="opacity-100"
-        leave="duration-200 ease-in" leave-from="opacity-100" leave-to="opacity-0">
-        <div class="fixed inset-0 bg-black/10 bg-opacity-50" />
-      </TransitionChild>
+  <Transition name="dialog-fade" appear @before-enter="beforeEnter" @leave="startLeaving" @after-leave="afterLeave">
+    <div v-if="modelValue || isLeaving"
+      class="fixed inset-0 z-99 flex items-center justify-center bg-black/15 transition-opacity duration-300">
+      <div :class="[
+        'bg-white rounded-2xl shadow-xl max-w-md w-full p-6 transform transition-all duration-300',
+        panelClass,
+        isLeaving ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+      ]">
+        <div v-if="animation" class="w-full w-40 h-40">
+          <Vue3Lottie :animationData="animation" />
+        </div>
 
-      <div class="fixed inset-0 overflow-y-auto">
-        <div class="flex min-h-full items-center justify-center p-4 text-center">
-          <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0 scale-95"
-            enter-to="opacity-100 scale-100" leave="duration-200 ease-in" leave-from="opacity-100 scale-100"
-            leave-to="opacity-0 scale-95">
-            <DialogPanel
-              class="w-full max-w-md transform overflow-hidden rounded-lg bg-white p-6 text-left align-middle shadow-xl transition-all"
-              :class="panelClass">
-              <DialogTitle as="h3" class="text-lg font-medium leading-6 text-gray-900" v-if="title">
-                {{ title }}
-              </DialogTitle>
+        <h2 class="text-xl font-semibold text-center mb-2">{{ title }}</h2>
+        <p class="text-gray-600 text-center mb-4">{{ description }}</p>
+        
+        <slot />
 
-              <div v-if="description" class="mt-2">
-                <DialogDescription class="text-sm text-gray-500">
-                  {{ description }}
-                </DialogDescription>
-              </div>
-
-              <div class="mt-4">
-                <!-- Custom content through default slot -->
-                <slot></slot>
-              </div>
-
-              <div v-if="showFooter" class="mt-6 flex justify-end gap-3">
-                <button v-if="showCancelButton" type="button"
-                  class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                  @click="onCancel">
-                  {{ cancelButtonText }}
-                </button>
-                <button v-if="showConfirmButton" type="button" :class="confirmButtonClass" @click="onConfirm">
-                  {{ confirmButtonText }}
-                </button>
-              </div>
-            </DialogPanel>
-          </TransitionChild>
+        <div class="mt-6 flex justify-between gap-4">
+          <button v-if="showCancelButton" class="px-4 py-2 w-full text-sm bg-gray-100 rounded hover:bg-gray-200"
+            @click="handleCancel">
+            {{ cancelButtonText }}
+          </button>
+          <button v-if="showConfirmButton"
+            :class="['px-4 py-2 text-sm w-full rounded text-white', confirmButtonClass || 'bg-red-400 hover:bg-red-500']"
+            @click="handleConfirm">
+            {{ confirmButtonText }}
+          </button>
         </div>
       </div>
-    </Dialog>
-  </TransitionRoot>
+    </div>
+  </Transition>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
-import {
-  Dialog,
-  DialogPanel,
-  DialogTitle,
-  DialogDescription,
-  TransitionRoot,
-  TransitionChild,
-} from '@headlessui/vue';
+import { defineProps, ref } from 'vue'
+import { Vue3Lottie } from 'vue3-lottie'
 
 const props = defineProps({
-  modelValue: {
-    type: Boolean,
-    default: false,
-  },
-  title: {
-    type: String,
-    default: '',
-  },
-  description: {
-    type: String,
-    default: '',
-  },
-  showFooter: {
-    type: Boolean,
-    default: true,
-  },
-  showConfirmButton: {
-    type: Boolean,
-    default: true,
-  },
-  showCancelButton: {
-    type: Boolean,
-    default: true,
-  },
-  confirmButtonText: {
-    type: String,
-    default: 'Confirm',
-  },
-  cancelButtonText: {
-    type: String,
-    default: 'Cancel',
-  },
-  confirmButtonClass: {
-    type: String,
-    default: 'inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
-  },
-  panelClass: {
-    type: String,
-    default: '',
-  },
-  // If true, clicking outside or pressing ESC won't close the dialog
-  persistent: {
-    type: Boolean,
-    default: false,
-  }
-});
+  modelValue: Boolean,
+  title: String,
+  description: String,
+  confirmButtonText: String,
+  cancelButtonText: String,
+  showCancelButton: Boolean,
+  showConfirmButton: Boolean,
+  confirmButtonClass: String,
+  panelClass: String,
+  persistent: Boolean,
+  onConfirm: Function,
+  onCancel: Function,
+  animation: Object
+})
 
-const emit = defineEmits(['update:modelValue', 'confirm', 'cancel']);
+const isLeaving = ref(false)
 
-const isOpen = ref(props.modelValue);
-
-watch(() => props.modelValue, (newVal) => {
-  isOpen.value = newVal;
-});
-
-function closeDialog() {
-  if (!props.persistent) {
-    emit('update:modelValue', false);
-  }
+const handleConfirm = () => {
+  isLeaving.value = true
+  setTimeout(() => {
+    props.onConfirm?.()
+  }, 300) // delay biar animasi selesai
 }
 
-function onConfirm() {
-  emit('confirm');
-  emit('update:modelValue', false);
+const handleCancel = () => {
+  isLeaving.value = true
+  setTimeout(() => {
+    props.onCancel?.()
+  }, 300)
 }
 
-function onCancel() {
-  emit('cancel');
-  emit('update:modelValue', false);
+const beforeEnter = () => {
+  isLeaving.value = false
+}
+
+const startLeaving = () => {
+  isLeaving.value = true
+}
+
+const afterLeave = () => {
+  isLeaving.value = false
 }
 </script>

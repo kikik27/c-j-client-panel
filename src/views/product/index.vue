@@ -20,10 +20,6 @@ const isFetching = ref(false);
 const scrollContainerRef = ref(null);
 const showSearch = ref(false);
 const userData = ref(null)
-import { useDialog } from '@/utils/useDialog';
-const dialog = useDialog();
-
-// Confirmation dialog with promise handling
 
 onMounted(async () => {
   cartStore.loadCart()
@@ -111,22 +107,6 @@ const itemInChart = (id) => {
   return item ? item.qty : 0;
 };
 
-// Get sales rank - return null if no sales data
-const getSalesRank = (product) => {
-  if (product.sales_count === null) return null;
-
-  // Sort products by sales_count in descending order
-  const sortedProducts = [...products.value]
-    .filter(p => p.sales_count !== null)
-    .sort((a, b) => b.sales_count - a.sales_count);
-
-  // Find the position of the current product
-  const position = sortedProducts.findIndex(p => p.id === product.id);
-
-  // Return position + 1 to make it 1-based
-  return position !== -1 ? position + 1 : null;
-};
-
 const toggleSearch = () => {
   showSearch.value = !showSearch.value;
   if (showSearch.value) {
@@ -144,13 +124,14 @@ const scrollToTop = () => {
   }
 };
 
-const loadUserSaveData = () => {
-  try {
-    userData.value = JSON.parse(Cookies.get("user") || null);
-  } catch {
-    Cookies.set("user", []);
-  }
-}
+const rankedProducts = computed(() => {
+  return [...products.value]
+    .sort((a, b) => b.count_sale - a.count_sale)
+    .map((product, index) => ({
+      ...product,
+      rank: index + 1
+    }));
+});
 
 const navigateToDetail = (id) => {
   const encodedID = btoa(id);
@@ -199,17 +180,20 @@ const navigateToDetail = (id) => {
       </div>
     </div>
     <div class="container mx-auto p-4">
-    <!-- <h2 class="w-full text-xl font-semibold mb-4 text-start">
-      Form Order
-    </h2> -->
-      <div class="grid grid-cols-2 gap-2">
+      <h2 class="w-full text-xl text-center font-bold mb-4">
+        Form Order
+      </h2>
+      <div class="grid grid-cols-2 gap-4">
         <!-- Real products -->
-        <div v-for="product in products" :key="product.id" class="bg-white rounded-lg shadow-md flex flex-col h-full"
+        <div v-for="product in rankedProducts" :key="product.id" class="bg-white rounded-lg shadow-lg flex flex-col h-full"
           v-if="products.length > 0 || !isLoading" @click="navigateToDetail(product.id)">
 
           <div class="relative">
+            <div v-if="product.rank <= 10" class="absolute top-2 left-2 bg-red-400 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+              #{{ product.rank }}
+            </div>
             <img
-              v-lazy="`${product.catalog_images[0]?.image ? 'https://demo.devaro.store/storage/' + product.catalog_images[0]?.image : 'https://storage.googleapis.com/a1aa/image/xkZ4b5-ggWWw2S9PTnL8XdnGUhYKRjLiDBpDfRwv6rM.jpg'}`"
+              v-lazy="`${product.catalog_images[0]?.image ? product.catalog_images[0]?.image_url : 'https://storage.googleapis.com/a1aa/image/xkZ4b5-ggWWw2S9PTnL8XdnGUhYKRjLiDBpDfRwv6rM.jpg'}`"
               :alt="product.name" class="w-full h-48 object-cover" />
           </div>
 
@@ -220,7 +204,7 @@ const navigateToDetail = (id) => {
           </div>
 
           <div class="p-2 pl-4 bg-yellow-500 rounded-b-lg">
-            <h2 class="text-xs text-white font-semibold">
+            <h2 class="text-sm text-white font-semibold">
               {{ formatMoney(product.price) }}
             </h2>
           </div>
