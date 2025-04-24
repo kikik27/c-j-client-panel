@@ -3,7 +3,7 @@ import notFound from '@/assets/404.json'
 import { Icon } from "@iconify/vue";
 import { useProductStore } from "@/stores/product";
 import { onMounted, ref, onUnmounted, computed, watch } from "vue";
-import Cookies from "js-cookie";
+import { debounce } from 'lodash';
 import { useInfiniteScroll } from "@vueuse/core";
 import router from '@/router';
 import { useCartStore } from '@/stores/cart';
@@ -20,35 +20,39 @@ const isFetching = ref(false);
 const scrollContainerRef = ref(null);
 const showSearch = ref(false);
 const userData = ref(null)
+const isSearching = computed(() => searchQuery.value.trim().length > 0);
 
 onMounted(async () => {
-  cartStore.loadCart()
-  await initialLoad();
-  if(isLoading){
-    useInfiniteScroll(
-      scrollContainerRef,
-      async () => {
-        if (!isFetching.value && !isLast.value) {
-          await loadMore();
-        }
-      },
-      { distance: 10 }
-    );
-  }
+  cartStore.loadCart();
+  if (!isSearching.value) {
+    await initialLoad('');  }
+
+  useInfiniteScroll(
+    scrollContainerRef,
+    async () => {
+      if (!isFetching.value && !isLast.value && !isSearching.value) {
+        await loadMore();
+      }
+    },
+    { distance: 10 }
+  );
 });
-watch(searchQuery, async (newQuery) => {
-  // Reset pagination and products when search changes
+
+
+const debouncedSearch = debounce(async (query) => {
   page.value = 1;
   products.value = [];
   isLast.value = false;
   isLoading.value = true;
-  console.log("SEARCHIng")
+  console.log("Searching products with query:", query);
+
   try {
     const res = await productStore.getProduct({
       page: page.value,
       limit: limit.value,
-      search: newQuery
+      search: query
     });
+
     products.value = [...productStore.products];
     isLast.value = res.data.next_page_url === null;
     if (res.data.next_page_url !== null) {
@@ -59,12 +63,13 @@ watch(searchQuery, async (newQuery) => {
   } finally {
     isLoading.value = false;
   }
-}, { debounce: 1000 });
+}, 1000);
 
-const initialLoad = async () => {
+
+const initialLoad = async (query) => {
   isLoading.value = true;
   try {
-    const res = await productStore.getProduct({ page: page.value, limit: limit.value, search: searchQuery.value });
+    const res = await productStore.getProduct({ page: page.value, limit: limit.value, search: query ? query : '' });
     products.value = [...productStore.products];
     isLast.value = res.data.next_page_url === null;
     if (res.data.next_page_url !== null) {
@@ -78,15 +83,17 @@ const initialLoad = async () => {
 };
 
 const loadMore = async () => {
-  // Don't fetch if already fetching or at the last page
   if (isFetching.value || isLast.value) return;
 
   isFetching.value = true;
   try {
-    const res = await productStore.getProduct({ page: page.value, limit: limit.value, search: '' });
-    products.value = [...products.value, ...productStore.products];
+    const res = await productStore.getProduct({
+      page: page.value,
+      limit: limit.value,
+      search: isSearching.value ? searchQuery.value.trim() : ''
+    });
 
-    // Update isLast flag and page number
+    products.value = [...products.value, ...productStore.products];
     isLast.value = res.data.next_page_url === null;
     if (res.data.next_page_url !== null) {
       page.value += 1;
@@ -97,6 +104,7 @@ const loadMore = async () => {
     isFetching.value = false;
   }
 };
+
 
 const formatMoney = (value, currency = "IDR", locale = "id") => {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(value);
@@ -126,17 +134,26 @@ const scrollToTop = () => {
 
 const rankedProducts = computed(() => {
   return [...products.value]
-    .sort((a, b) => b.count_sale - a.count_sale)
-    .map((product, index) => ({
-      ...product,
-      rank: index + 1
+  .sort((a, b) => b.count_sale - a.count_sale)
+  .map((product, index) => ({
+    ...product,
+    rank: index + 1
     }));
+  });
+
+  const navigateToDetail = (id) => {
+    const encodedID = btoa(id);
+    router.push(`detail/${encodedID}`);
+};
+
+watch(searchQuery, (newQuery) => {
+  if (newQuery.trim() === '') {
+    initialLoad('');
+  } else {
+    debouncedSearch(newQuery.trim());
+  }
 });
 
-const navigateToDetail = (id) => {
-  const encodedID = btoa(id);
-  router.push(`detail/${encodedID}`);
-};
 </script>
 
 <template>
@@ -144,7 +161,7 @@ const navigateToDetail = (id) => {
     <div class="sticky top-0 z-50 bg-white shadow-md">
       <div class="flex justify-between w-full px-4 py-3 items-center">
         <div class="flex items-center gap-2">
-          <div class="border-1 p-2 rounded-full">
+          <div class="border-1 p-2 rounded-full" @click="router.push('/profile')">
             <Icon icon="mdi:user"></Icon>
           </div>
           <div class="text-sm capitalize font-normal" v-if="userData != null">
@@ -217,7 +234,6 @@ const navigateToDetail = (id) => {
           <div class="relative">
             <div class="w-full h-48 bg-gray-200"></div>
             <div class="absolute top-2 shadow-lg left-2 bg-gray-100 w-12 h-6 rounded-full"></div>
-            <div class="absolute top-2 shadow-lg right-2 bg-gray-100 w-24 h-6 rounded-full"></div>
           </div>
           <div class="p-4 pb-6 relative">
             <div class="h-4 bg-gray-200 rounded w-3/4"></div>
@@ -244,12 +260,12 @@ const navigateToDetail = (id) => {
         </div>
       </div>
 
-      <!-- End of products indicator -->
+      <!-- End of products indicator
       <div v-if="isLast && products.length > 0 && !isLoading && !isFetching" class="text-center py-4">
         <p class="text-gray-500">No more products to load</p>
-      </div>
+      </div> -->
 
-      <div v-if="!isLoading && products.length === 0" class="flex flex-col items-center justify-center py-10">
+      <div v-if="!isLoading && !isFetching && products.length === 0" class="flex flex-col items-center justify-center py-10">
         <Vue3Lottie :animationData="notFound" :loop="true" :autoplay="true" style="width: 200px; height: 200px;" />
         <p class="text-gray-500 mt-4">Produk tidak ditemukan</p>
       </div>

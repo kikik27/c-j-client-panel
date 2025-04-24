@@ -13,8 +13,14 @@
 
         <h2 class="text-xl font-semibold text-center mb-2">{{ title }}</h2>
         <p class="text-gray-600 text-center mb-4">{{ description }}</p>
-        
-        <slot />
+
+        <template v-if="content">
+          <component :is="content" />
+        </template>
+        <template v-else>
+          <slot />
+        </template>
+
 
         <div class="mt-6 flex justify-between gap-4">
           <button v-if="showCancelButton" class="px-4 py-2 w-full text-sm bg-gray-100 rounded hover:bg-gray-200"
@@ -49,7 +55,8 @@ const props = defineProps({
   persistent: Boolean,
   onConfirm: Function,
   onCancel: Function,
-  animation: Object
+  animation: Object,
+  content: [Object, Function]
 })
 
 const isLeaving = ref(false)

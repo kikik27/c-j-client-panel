@@ -34,7 +34,7 @@
       </div>
 
       <div>
-        <label class="font-semibold block">Alamat</label>
+        <label class="font-semibold block">Alamat <span class="text-red-500">*</span></label>
         <div v-for="(addr, index) in form.addresses" :key="index" class="flex gap-2 items-center justify-center">
           <input type="radio" :checked="addr.isSelected" name="selectedAddress" @change="selectAddress(index)"
             class="mt-2" />
@@ -77,19 +77,30 @@ const form = reactive({
   phone: store.profile.phone || '',
   addresses: store.profile.addresses.length > 0
     ? store.profile.addresses.map(a => ({ value: a.value, isSelected: a.isSelected }))
-    : [{ value: '', isSelected: true }]
+    : []
 });
 
 const schema = yup.object({
-  name: yup.string().required('Nama wajib diisi'),
+  name: yup.string().required('Nama wajib diisi').min(3, 'Nama minimal 3 karakter').max(50, 'Nama maksimal 50 karakter'),
   email: yup.string().email('Format email tidak valid').notRequired(),
-  phone: yup.string().required('Nomor telepon wajib diisi'),
+  phone: yup.number().required('Nomor telepon wajib diisi').test('validPhone', 'Nomor telepon tidak valid', function (value) {
+    return value.toString().length >= 10 && value.toString().length <= 15;
+  }),
   addresses: yup.array()
     .max(5, 'Maksimal 5 alamat')
     .of(yup.object({
       value: yup.string().required('Alamat wajib diisi'),
       isSelected: yup.boolean()
-    }))
+    })).min(1, 'Minimal 1 alamat')
+    .test('unique', 'Alamat tidak boleh sama', function (value) {
+      const uniqueValues = new Set(value.map(a => a.value));
+      return uniqueValues.size === value.length;
+    })
+    .test('selected', 'Pilih salah satu alamat', function (value) {
+      const selected = value.some(a => a.isSelected);
+      return selected;
+    })
+    .required('Alamat wajib diisi')
 });
 
 const onSubmit = async () => {

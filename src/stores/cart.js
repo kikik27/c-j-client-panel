@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import Cookies from 'js-cookie';
 import CryptoJS from 'crypto-js';
+import api from '@/utils/fetch';
 
 const SECRET_KEY = import.meta.env.VITE_APP_KEY;
 
@@ -94,18 +95,6 @@ export const useCartStore = defineStore('cart', () => {
     }
   };
 
-  const postCarts = async (products) => {
-    isLoading.value = true;
-    try {
-      const response = await api.post('/transaction', { products: products });
-      return response;
-    } catch (error) {
-      console.error('Error posting cart data:', error);
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
   const toggleItemSelection = (itemId) => {
     const item = items.value.find(item => item.id === itemId);
     if (item) {
@@ -127,6 +116,57 @@ export const useCartStore = defineStore('cart', () => {
   // Initialize cart on store creation
   loadCart();
 
+  const selectedItemCount = computed(() => {
+    return selectedItems.value.reduce((total, item) => total + item.qty, 0);
+  });
+
+  const postCart = async (profile) => {
+    isLoading.value = true;
+
+    try {
+      // Ambil produk yang dipilih
+      const selectedProducts = selectedItems.value.map(item => ({
+        id: item.id,
+        qty: item.qty
+      }));
+
+      if (selectedProducts.length === 0) {
+        throw new Error('Tidak ada produk yang dipilih untuk checkout.');
+      }
+
+      // Ambil alamat yang dipilih dari profile
+      const selectedAddress = profile.addresses?.find(addr => addr.isSelected);
+
+      if (!selectedAddress || !selectedAddress.value) {
+        throw new Error('Alamat pengiriman belum dipilih.');
+      }
+
+      const payload = {
+        products: selectedProducts,
+        customer: profile.name,
+        phone: profile.phone,
+        address: selectedAddress.value,
+        delivery_id: "81f3ab46-d0e7-4586-a00e-a0af029081b9"
+      };
+
+      const response = await api.post('/transaction', payload);
+
+      if (response?.data) {
+        clearCart();
+        return response;
+      } else {
+        throw new Error('Gagal memproses transaksi');
+      }
+    } catch (error) {
+      console.error('Error during checkout:', error);
+      throw error; // kirim error biar bisa ditangani di komponen pemanggil
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+
+
   return {
     items,
     isLoading,
@@ -140,5 +180,7 @@ export const useCartStore = defineStore('cart', () => {
     toggleItemSelection,
     removeItem,
     clearCart,
+    selectedItemCount,
+    postCart
   };
 });

@@ -156,7 +156,7 @@ const handleAddToCart = async (product) => {
         <h2 class="text-lg capitalize mb-1 font-bold">
           {{ product.name }}
         </h2>
-        <h2 class="text-sm capitalize mb-2 truncate">
+        <h2 class="text-sm capitalize mb-2 truncate text-red-400">
           {{ formatMoney(product.price) }}
         </h2>
       </div>

@@ -1,16 +1,19 @@
 <script setup>
 import { Icon } from "@iconify/vue";
 import { useCartStore } from "@/stores/cart";
-import { onMounted, onUnmounted, ref, watch } from "vue";
+import { useProfileStore } from "@/stores/profile";
+import { h, markRaw, onMounted, onUnmounted, ref, watch } from "vue";
 import router from '@/router';
 import notFound from '@/assets/404.json';
 import { Vue3Lottie } from 'vue3-lottie';
 import { useDialog } from '@/utils/useDialog';
 import warning from '@/assets/lottie-warning.json';
+import success from '@/assets/lottie-success.json';
 
 const dialog = useDialog();
 const cartStore = useCartStore();
 const isScrolled = ref(false);
+const profileStore = useProfileStore();
 const scrollContainer = ref(null);
 const isLoading = ref(true);
 
@@ -68,7 +71,7 @@ const updateQuantity = (item, newQty) => {
             cartStore.removeItem(item.id);
             break;
           case false:
-            cartStore.updateItemQuantity(item.id, 1); 
+            cartStore.updateItemQuantity(item.id, 1);
             break;
         }
       })
@@ -81,63 +84,113 @@ const updateQuantity = (item, newQty) => {
 };
 
 const handleCheckout = () => {
-  if (cartStore.selectedItems.length === 0) {
-    dialog.alert({
-      title: "Peringatan",
-      description: "Silakan pilih barang yang ingin dibeli",
-      confirmButtonText: "OK",
-      animation: warning
-    });
-  } else {
-    dialog.confirm({
-      title: "Konfirmasi",
-      description: "Apakah Anda yakin ingin melanjutkan ke pembayaran?",
-      showCancelButton: true,
-      confirmButtonText: "Ya",
-      cancelButtonText: "Batal",
-      animation: warning
-    }).then((isTrue) => {
-      if (isTrue) {
-        console.log('User confirmed checkout');
-        dialog.prompt({
-          title: 'Masukkan Informasi',
-          description: 'Silakan lengkapi form di bawah:',
-          confirmButtonText: 'Kirim',
-          cancelButtonText: 'Batal',
-          animation: warning,
-          fields: [
-            {
-              name: 'name',
-              label: 'Nama',
-              placeholder: 'Masukkan nama',
-              rule: yup.string().required('Nama tidak boleh kosong')
-            },
-            {
-              name: 'email',
-              label: 'Email',
-              placeholder: 'contoh@email.com',
-              rule: yup.string().email('Format email salah').required('Email wajib diisi')
-            }
-          ]
-        }).then((data) => {
-          if (data) {
-            console.log('Form berhasil:', data);
-          }
-        });
+  const profile = profileStore.profile
+  const selectedAddress = profile.addresses?.find(addr => addr.isSelected)
 
-      } else {
+  // Validasi data profil
+  if (!profile.name || !profile.phone) {
+    return dialog.confirm({
+      title: 'Data Tidak Lengkap',
+      description: 'Nama dan nomor telepon wajib diisi di profil Anda.',
+      confirmButtonText: 'Lengkapi Profil',
+      cancelButtonText: 'Batal',
+      animation: warning
+    }).then((
+      confirmed
+    ) => {
+      if (confirmed) {
+        router.push('/profile')
+      }
+    })
+
+  }
+
+  if (!selectedAddress || !selectedAddress.value) {
+    return dialog.confirm({
+      title: 'Alamat Belum Dipilih',
+      description: 'Silakan pilih salah satu alamat pengiriman di profil Anda.',
+      confirmButtonText: 'Pilih Alamat',
+      cancelButtonText: 'Batal',
+      animation: warning
+    }).then((confirmed) => {
+      if (confirmed) {
+        router.push('/profile')
+      }
+    })
+  }
+
+  if (cartStore.selectedItems.length === 0) {
+    return dialog.confirm({
+      title: 'Peringatan',
+      description: 'Silakan pilih barang yang ingin dibeli.',
+      confirmButtonText: 'OK',
+      animation: warning
+    })
+  }
+
+  // Konten dialog konfirmasi dalam bentuk komponen VNode
+  const contentVNode = {
+    setup() {
+      return () =>
+        h('div', { class: 'text-left text-sm leading-relaxed text-gray-700 space-y-2' }, [
+          h('p', [h('strong', 'Nama: '), profile.name]),
+          h('p', [h('strong', 'No. Telepon: '), profile.phone]),
+          h('p', [h('strong', 'Alamat: '), selectedAddress.value])
+        ])
+    }
+  }
+
+  // Tampilkan konfirmasi dengan slot konten Vue
+  dialog.confirm({
+    title: 'Konfirmasi Pemesanan',
+    description: 'Silakan periksa kembali data penerima sebelum melanjutkan.',
+    content: markRaw(contentVNode),
+    confirmButtonText: 'Ya, Lanjutkan',
+    cancelButtonText: 'Batal',
+    animation: warning
+  }).then(async(confirmed) => {
+    if (confirmed) {
+      try {
+        const res = await cartStore.postCart(profileStore.profile);
+        if (res.status === 200) {
+          dialog.alert({
+            title: 'Berhasil Checkout',
+            animation: success,
+            description: 'Pesanan Anda telah berhasil diproses.',
+            confirmButtonText: 'OK'
+          });
+          cartStore.clearCart();
+          router.push('/orders');
+        } else {
+          throw new Error('Gagal melakukan checkout.');
+        }
+      } catch (err) {
         dialog.alert({
-          title: "Peringatan",
-          description: "Anda membatalkan proses checkout.",
-          confirmButtonText: "OK",
-          animation: warning
+          title: 'Gagal Checkout',
+          animation: warning,
+          description: err.message || 'Terjadi kesalahan saat proses checkout.',
+          confirmButtonText: 'OK'
         });
       }
-    }).catch(() => {
-      // Handle cancel action
-    });
+    } else {
+      dialog.alert({
+        title: 'Dibatalkan',
+        description: 'Proses checkout dibatalkan.',
+        confirmButtonText: 'OK',
+        animation: warning
+      })
+    }
+  }).catch(() => {
+    // Cancel dialog
+  })
+}
+
+const numberFormatter = (number) => {
+  if (number >= 1000) {
+    return (number / 1000).toFixed(1) + "K";
   }
-};
+  return number.toString();
+}
 
 </script>
 
@@ -165,14 +218,17 @@ const handleCheckout = () => {
             <div class="flex items-center gap-2">
               <!-- Use @click to toggle selection instead of v-model -->
               <input type="checkbox" :checked="item.isSelected" @click="cartStore.toggleItemSelection(item.id)">
-              <img v-lazy="item.image != null ? item.image : 'https://storage.googleapis.com/a1aa/image/xkZ4b5-ggWWw2S9PTnL8XdnGUhYKRjLiDBpDfRwv6rM.jpg'" :alt="item.name" class="w-24 h-24 rounded-lg object-cover" />
+              <img
+                v-lazy="item.image != null ? item.image : 'https://storage.googleapis.com/a1aa/image/xkZ4b5-ggWWw2S9PTnL8XdnGUhYKRjLiDBpDfRwv6rM.jpg'"
+                :alt="item.name" class="w-24 h-24 rounded-lg object-cover" />
             </div>
             <div class="flex justify-between flex-col gap-2">
               <h2 class="text-md font-semibold capitalize line-clamp-2 max-w-46">
-                {{ item.name }} mantap banget toppopop dsdkowda nnm
+                {{ item.name }}
               </h2>
-              <div v-if="item.salesCount" class="bg-red-400 w-fit text-white text-xs font-bold px-4 py-1 rounded-full">
-                Terjual {{ item.salesCount }}
+              <div v-if="item.salesCount"
+                class="bg-yellow-400 shadow w-fit text-white text-xs font-bold px-4 py-1 rounded-full">
+                Terjual {{ numberFormatter(item.salesCount) }}
               </div>
               <h2 class="text-sm capitalize text-red-400 font-semibold mb-2 truncate">
                 {{ formatMoney(item.price) }}
@@ -206,7 +262,7 @@ const handleCheckout = () => {
       </div>
       <button :disabled="isLoading || cartStore.selectedItems.length === 0" @click="handleCheckout"
         class="w-full p-4 text-sm bg-red-500 disabled:cursor-not-allowed disabled:bg-red-400 text-white text-center rounded-lg">
-        Pesan Sekarang ( {{ cartStore.selectedItems.length }} )
+        Pesan Sekarang ( {{ cartStore.selectedItemCount }} )
       </button>
     </div>
   </div>

@@ -9,6 +9,7 @@ export const useProductStore = defineStore('product', () => {
   const getProduct = async (params) => {
     const {page, limit, search} = params
     try {
+      console.log(params)
       const response = await api.get(`/products?page=${page ?? 1}&limit=${limit}&best_seller=1&name=${search}`)
       products.value = response.data.data
       return response
